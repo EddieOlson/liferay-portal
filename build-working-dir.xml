@@ -1,17 +1,11 @@
 <?xml version="1.0"?>
 
-<project default="prepare-working-dir" xmlns:unless="ant:unless">
-	<dirname file="${ant.file.build-common}" property="project.dir.native" />
-
-	<pathconvert property="project.dir" targetos="unix">
-		<path location="${project.dir.native}" />
-	</pathconvert>
-
-	<property file="${project.dir}/working.dir.${user.name}.properties" />
-	<property file="${project.dir}/working.dir.${env.COMPUTERNAME}.properties" />
-	<property file="${project.dir}/working.dir.${env.HOST}.properties" />
-	<property file="${project.dir}/working.dir.${env.HOSTNAME}.properties" />
-	<property file="${project.dir}/working.dir.properties" />
+<project default="prepare-working-dir" xmlns:if="ant:if" xmlns:unless="ant:unless">
+	<property file="working.dir.${user.name}.properties" />
+	<property file="working.dir.${env.COMPUTERNAME}.properties" />
+	<property file="working.dir.${env.HOST}.properties" />
+	<property file="working.dir.${env.HOSTNAME}.properties" />
+	<property file="working.dir.properties" />
 
 	<condition property="prepare.working.dir.private">
 		<not>
@@ -144,6 +138,34 @@
 		</sequential>
 	</macrodef>
 
+	<macrodef name="prepare-working-dir-private">
+		<sequential>
+			<loadproperties srcFile="working.dir.properties">
+				<filterchain>
+					<linecontains>
+						<contains value="private.branch.name" />
+					</linecontains>
+				</filterchain>
+			</loadproperties>
+
+			<loadproperties srcFile="working.dir.properties">
+				<filterchain>
+					<tokenfilter>
+						<containsregex pattern="(build\.repository\.private\.\w+)\Q[${private.branch.name}]\E" replace="\1" />
+					</tokenfilter>
+				</filterchain>
+			</loadproperties>
+
+			<delete file="working.dir.properties" />
+
+			<propertyfile file="build.${user.name}.properties">
+				<entry key="build.repository.private.password" value="${build.repository.private.password}" />
+				<entry key="build.repository.private.url" value="${build.repository.private.url}" />
+				<entry key="build.repository.private.username" value="${build.repository.private.username}" />
+			</propertyfile>
+		</sequential>
+	</macrodef>
+
 	<macrodef name="replace-regex">
 		<attribute name="replace.regex.file" />
 		<attribute name="replace.regex.pattern" />
@@ -186,6 +208,20 @@
 			</filterchain>
 		</loadresource>
 
+		<exec executable="git" resultproperty="portal.git.commit.result">
+			<arg value="cat-file" />
+			<arg value="-e" />
+			<arg value="${portal.git.commit}" />
+		</exec>
+
+		<fail message="Please fetch ${portal.git.commit}.">
+			<condition>
+				<not>
+					<equals arg1="${portal.git.commit.result}" arg2="0" />
+				</not>
+			</condition>
+		</fail>
+
 		<exec executable="git" failonerror="true">
 			<arg value="checkout" />
 			<arg value="${portal.git.commit}" />
@@ -224,13 +260,17 @@
 		<exec executable="git" failonerror="true">
 			<arg value="checkout" />
 			<arg value="${portal.private.git.commit}" />
+			<arg if:true="${checkout.portal.private.releng}" value="modules/.releng/private" />
 			<arg value="modules/private" />
+			<arg value="working.dir.properties" />
 		</exec>
 
 		<exec executable="git">
 			<arg value="reset" />
 			<arg value="HEAD" />
+			<arg if:true="${checkout.portal.private.releng}" value="modules/.releng/private" />
 			<arg value="modules/private" />
+			<arg value="working.dir.properties" />
 		</exec>
 	</target>
 
@@ -239,6 +279,10 @@
 			private.branch.name="${private.branch.name}"
 			public.branch.name="${public.branch.name}"
 			unless:true="${prepare.working.dir.private}"
+		/>
+
+		<prepare-working-dir-private
+			if:true="${prepare.working.dir.private}"
 		/>
 	</target>
 </project>

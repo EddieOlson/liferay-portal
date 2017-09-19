@@ -449,6 +449,16 @@ public abstract class BaseIndexer<T> implements Indexer<T> {
 		return true;
 	}
 
+	/**
+	 * @deprecated As of 7.0.0, replaced by {@link
+	 *             RelatedEntryIndexer.isVisibleRelatedEntry(long, int)}
+	 *
+	 * @param classPK
+	 * @param status
+	 * @return
+	 * @throws Exception
+	 */
+	@Deprecated
 	@Override
 	public boolean isVisibleRelatedEntry(long classPK, int status)
 		throws Exception {
@@ -640,7 +650,7 @@ public abstract class BaseIndexer<T> implements Indexer<T> {
 
 				SearchResultPermissionFilter searchResultPermissionFilter =
 					new DefaultSearchResultPermissionFilter(
-						this, permissionChecker);
+						this::doSearch, permissionChecker);
 
 				hits = searchResultPermissionFilter.search(searchContext);
 			}
@@ -1539,7 +1549,9 @@ public abstract class BaseIndexer<T> implements Indexer<T> {
 			document.addKeyword(Field.STATUS, workflowedModel.getStatus());
 		}
 
-		for (DocumentContributor documentContributor : _documentContributors) {
+		for (DocumentContributor documentContributor :
+				getDocumentContributors()) {
+
 			documentContributor.contribute(document, baseModel);
 		}
 
@@ -1558,12 +1570,14 @@ public abstract class BaseIndexer<T> implements Indexer<T> {
 		return _defaultSelectedLocalizedFieldNames;
 	}
 
-	/**
-	 * @deprecated As of 7.0.0, no direct replacement
-	 * @return
-	 */
-	@Deprecated
 	protected List<DocumentContributor> getDocumentContributors() {
+		if (_documentContributors != null) {
+			return _documentContributors;
+		}
+
+		_documentContributors = ServiceTrackerCollections.openList(
+			DocumentContributor.class);
+
 		return _documentContributors;
 	}
 
@@ -1800,13 +1814,10 @@ public abstract class BaseIndexer<T> implements Indexer<T> {
 	protected void resetFullQuery(SearchContext searchContext) {
 		searchContext.clearFullQueryEntryClassNames();
 
-		for (Indexer<?> indexer : IndexerRegistryUtil.getIndexers()) {
-			if (indexer instanceof RelatedEntryIndexer) {
-				RelatedEntryIndexer relatedEntryIndexer =
-					(RelatedEntryIndexer)indexer;
+		for (RelatedEntryIndexer relatedEntryIndexer :
+				RelatedEntryIndexerRegistryUtil.getRelatedEntryIndexers()) {
 
-				relatedEntryIndexer.updateFullQuery(searchContext);
-			}
+			relatedEntryIndexer.updateFullQuery(searchContext);
 		}
 	}
 
@@ -1842,8 +1853,7 @@ public abstract class BaseIndexer<T> implements Indexer<T> {
 	private String[] _defaultSelectedFieldNames;
 	private String[] _defaultSelectedLocalizedFieldNames;
 	private final Document _document = new DocumentImpl();
-	private final List<DocumentContributor> _documentContributors =
-		ServiceTrackerCollections.openList(DocumentContributor.class);
+	private List<DocumentContributor> _documentContributors;
 	private boolean _filterSearch;
 	private Boolean _indexerEnabled;
 	private IndexerPostProcessor[] _indexerPostProcessors =
