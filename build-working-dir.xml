@@ -231,7 +231,7 @@
 
 		<exec executable="git">
 			<arg value="tag" />
-			<arg value="--delete" />
+			<arg value="-d" />
 			<arg value="git-commit-portal" />
 		</exec>
 	</target>
@@ -283,7 +283,7 @@
 
 		<exec executable="git">
 			<arg value="tag" />
-			<arg value="--delete" />
+			<arg value="-d" />
 			<arg value="git-commit-portal-private" />
 		</exec>
 	</target>
